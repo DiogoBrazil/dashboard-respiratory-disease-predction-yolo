@@ -1,28 +1,37 @@
 import streamlit as st
 from PIL import Image
-import time
-from ultralytics import YOLO
+import requests
 import matplotlib.pyplot as plt
+import io
+import time
 
-@st.cache_resource
-def load_model():
-    model = YOLO('models/best.pt') 
-    return model
+# Função para fazer a requisição à API
+def predict_via_api(image):
+    # Verifica o formato da imagem e ajusta o tipo MIME e extensão corretamente
+    image_format = image.format.upper()
+    
+    if image_format == "JPG":
+        image_format = "JPEG"  # Trata "JPG" como "JPEG"
+    
+    mime_type = f"image/{image_format.lower()}"  # Define o tipo MIME
 
-model = load_model()
+    # Converte a imagem para bytes no formato correto (JPEG ou PNG)
+    img_byte_arr = io.BytesIO()
+    image.save(img_byte_arr, format=image_format)
+    img_byte_arr = img_byte_arr.getvalue()
+    response = requests.post(
+        f"{st.secrets['API_BASE_URL']}/predict",  # Substitua pelo URL da API
+        files={"file": (f"image.{image_format.lower()}", img_byte_arr, mime_type)}  # Nome, conteúdo, tipo MIME
+    )
+    
+    # Verifica a resposta
+    if response.status_code == 200:
+        return response.json()["prediction"]
+    else:
+        st.error(f"Erro na API: {response.status_code}")
+        return None
 
-def predict(image, model):
-    return model(image)
-
-def load_file_to_dictionary(file_path):
-    result_dict = {}
-
-    with open(file_path, 'r') as file:
-        for line in file:
-            value, disease = line.strip().split(' ', 1)
-            result_dict[disease] = float(value) * 100  
-    return result_dict
-
+# Função para plotar as previsões
 def plot_predictions(predictions_dict):
     diseases = list(predictions_dict.keys())
     percentages = list(predictions_dict.values())
@@ -48,8 +57,10 @@ def plot_predictions(predictions_dict):
 
     st.pyplot(fig)
 
+# Título da aplicação
 st.title("Detecção de doenças respiratórias")
 
+# Upload do arquivo de imagem
 uploaded_file = st.file_uploader("Escolha uma imagem de Raio-X que contenha a região pulmonar", type=["jpg", "png", "jpeg"])
 
 if uploaded_file is not None:
@@ -58,18 +69,20 @@ if uploaded_file is not None:
     st.image(image, caption='Imagem carregada', use_column_width=False, width=700)
 
     message_placeholder = st.empty()
+
     try:
+        # Faz a previsão chamando a API
         with st.spinner('Fazendo previsão...'):
-            time.sleep(2)
-            predictions = predict(image, model)
-            predictions[0].save_txt('results.txt')
-            result_dict = load_file_to_dictionary('results.txt')
+            predictions = predict_via_api(image)
+        
+        if predictions:
             message_placeholder.success("Previsão feita com sucesso")
             time.sleep(2)
             message_placeholder.empty()
-            
-            plot_predictions(result_dict)
+            plot_predictions(predictions)
+        else:
+            message_placeholder.error("Falha ao obter previsão")
+            time.sleep(2)
+            message_placeholder.empty()
     except Exception as e:
-        message_placeholder.error("Erro ao fazer a previsão")
-        time.sleep(2)
-        message_placeholder.empty()
+        st.error(f"Erro ao fazer a previsão: {e}")

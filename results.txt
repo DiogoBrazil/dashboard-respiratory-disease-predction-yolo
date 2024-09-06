@@ -1,8 +1,0 @@
-0.79 Pneumonia Bacteriana
-0.19 Covid-19
-0.02 Pneumonia Viral
-0.00 Normal
-0.90 Normal
-0.10 Pneumonia Viral
-0.00 Pneumonia Bacteriana
-0.00 Covid-19
