@@ -1,10 +1,8 @@
 import streamlit as st
-import numpy as np
 from PIL import Image
 import time
 from ultralytics import YOLO
 import matplotlib.pyplot as plt
-import cv2
 
 @st.cache_resource
 def load_model():
